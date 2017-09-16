@@ -1,23 +1,33 @@
-// Разрабатываем игровой движок карточной игры
+// Добавили инверсию для того, чтобы можно было получать
+// предсказумое поведение выбора карт для тестов
 
-const run = (player1, player2, cards) => {
+const run = (player1, player2, cards, customRandom) => {
   const iter = (health1, name1, health2, name2, order, log) => {
-    // Карта - это пара имя-урон
-    const card = random(cards);
-    const damage = cdr(card)();
+    if (health1 <= 0) {
+      return consList(cons(car(head(log)), `${name1} был убит`), log);
+    }
+    // Функция customRandom реализована так
+    // (c) => {
+    // cardIndex = cardIndex === 0 ? 1 : 0;
+    // return get(cardIndex, c);
+    // }
+    // То есть мы переключаемся междудвумя картами, чтобы знать наносимый урон
+    const card = customRandom(cards);
+
     const cardName = car(card);
+    const damage = cdr(card)(health2);
+    const newHealth = health2 - damage;
+
     const message = `Игрок '${name1}' применил '${cardName}'
-  против '${name2}' и нанес урон '${damage}'`;
-    // Если кто-то убит, обновляем лог и выходим из игры
-    if (health2 <= 0) {
-      return consList(cons(cons(health1, health2), 'The end'), log);
-    }
-    // В зависимости от того, чей ход, рекурсивно вызываем iter
-    // Лог записываем в формате cons(cons(health1, health2), message)
+      против '${name2}' и нанес урон '${damage}'`;
+    let stats;
     if (order === 1) {
-      return iter(health1, name1, health2 - damage, name2, 2, consList(cons(cons(health1, health2 - damage), message), log));
+      stats = cons(cons(health1, newHealth), message);
+    } else if (order === 2) {
+      stats = cons(cons(newHealth, health1), message);
     }
-    return iter(health2, name2, health1 - damage, name1, 1, consList(cons(cons(health1 - damage, health2), message), log));
+    const newLog = consList(stats, log);
+    return iter(newHealth, name2, health1, name1, order === 1 ? 2 : 1, newLog);
   };
 
   const startHealth = 10;
@@ -25,6 +35,6 @@ const run = (player1, player2, cards) => {
   return reverse(iter(startHealth, player1, startHealth, player2, 1, l(logItem)));
 };
 
-export default cards =>
+export default (cards, customRandom) =>
   (name1, name2) =>
-    run(name1, name2, cards);
+    run(name1, name2, cards, customRandom);
