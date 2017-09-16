@@ -1,21 +1,22 @@
-// Добавили инверсию для того, чтобы можно было получать
-// предсказумое поведение выбора карт для тестов
+const isSimpleCard = card => typeTag(card) === 'SimpleCard';
+const isPercentCard = card => typeTag(card) === 'PercentCard';
 
 const run = (player1, player2, cards, customRandom) => {
   const iter = (health1, name1, health2, name2, order, log) => {
     if (health1 <= 0) {
       return consList(cons(car(head(log)), `${name1} был убит`), log);
     }
-    // Функция customRandom реализована так
-    // (c) => {
-    // cardIndex = cardIndex === 0 ? 1 : 0;
-    // return get(cardIndex, c);
-    // }
-    // То есть мы переключаемся междудвумя картами, чтобы знать наносимый урон
     const card = customRandom(cards);
-
-    const cardName = car(card);
-    const damage = cdr(card)(health2);
+    let cardName;
+    let damage;
+    if (isSimpleCard(card)) {
+      cardName = getSimpleCardName(card);
+      damage = simpleCardDamage(card);
+    }
+    if (isPercentCard(card)) {
+      cardName = getPercentCardName(card);
+      damage = percentCardDamage(card, health2);
+    }
     const newHealth = health2 - damage;
 
     const message = `Игрок '${name1}' применил '${cardName}'
@@ -30,11 +31,12 @@ const run = (player1, player2, cards, customRandom) => {
     return iter(newHealth, name2, health1, name1, order === 1 ? 2 : 1, newLog);
   };
 
+
   const startHealth = 10;
   const logItem = cons(cons(startHealth, startHealth), 'Начинаем бой!');
   return reverse(iter(startHealth, player1, startHealth, player2, 1, l(logItem)));
 };
 
-export default (cards, customRandom) =>
+export default (cards, customRandom = random) =>
   (name1, name2) =>
     run(name1, name2, cards, customRandom);
