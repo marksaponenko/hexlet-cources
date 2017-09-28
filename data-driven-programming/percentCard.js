@@ -1,14 +1,14 @@
-// Иницилизируем карту
-const defmethod = definer('PercentCard');
-
-// Конструктор карты
-const make = (name, points) =>
-  attach('PercentCard', cons(name, points));
+// Конструктор карты, диспечеризация теперь внутри
+const make = (name, percent) =>
+  (message, health) => {
+    switch (message) {
+      case 'getName':
+        return name;
+      case 'damage':
+        return Math.round(health * (percent / 100));
+      default:
+        return 'undefined method';
+    }
+  };
 
 export default make;
-
-// Добавляем данные в виртуальную таблицу, из которой будет выбираться необходимая функция
-defmethod('getName', self => car(self));
-
-defmethod('damage', (self, health) =>
-  Math.round(health * (cdr(self) / 100)));

@@ -1,5 +1,3 @@
-// В этом уроке реализована динамическая диспечеризация по типу карты
-
 const run = (player1, player2, cards, customRandom) => {
   const iter = (health1, name1, health2, name2, order, log) => {
     // Терминальное условие, запись конечного сообщения в лог
@@ -8,8 +6,10 @@ const run = (player1, player2, cards, customRandom) => {
     }
     // Рандомно выбираем карту, достаем имя и урон
     const card = customRandom(cards);
-    const cardName = getName(card);
-    const points = damage(card, health2);
+
+    // Диспечеризация теперь внутри конструктора
+    const cardName = card('getName');
+    const points = card('damage', health2);
     const newHealth = health2 - points;
 
     const message = `Игрок '${name1}' применил '${cardName}'
