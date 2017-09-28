@@ -1,35 +1,55 @@
+// В этом уроке мы узучили объекты(тип данных) и теперь имя и урон карты
+// достаем из объекта, также лог формируем на основании объекта.
+
 const run = (player1, player2, cards, customRandom) => {
   const iter = (health1, name1, health2, name2, order, log) => {
-    // Терминальное условие, запись конечного сообщения в лог
     if (health1 <= 0) {
-      return consList(cons(car(head(log)), `${name1} был убит`), log);
-    }
-    // Рандомно выбираем карту, достаем имя и урон
-    const card = customRandom(cards);
+      // Тут неоптимальное решение, пришлось привязаться к имени проигравшего,
+      // решение учителя
+      // if (health1 <= 0) {
+      // const prevLog = head(log);
+      // const newLog = {
+      // message: `${name1} был убит`,
+      // health1: prevLog.health1,
+      // health2: prevLog.health2,
+      // };
+      // return consList(newLog, log);
+    // }
+      const finalLog = {
+        health1: name1 === 'Ada' ? health2 : health1,
+        health2: name1 === 'Ada' ? health1 : health2,
+        message: `${name1} был убит`,
+      };
 
-    // Диспечеризация теперь внутри конструктора
-    const cardName = card('getName');
-    const points = card('damage', health2);
+      return consList(finalLog, log);
+    }
+
+    const card = customRandom(cards);
+    const cardName = card.name;
+    const points = card.damage(health2);
     const newHealth = health2 - points;
 
     const message = `Игрок '${name1}' применил '${cardName}'
       против '${name2}' и нанес урон '${points}'`;
-    // Генерируем лог в зависимости от очерендности хода
-    let stats;
-    if (order === 1) {
-      stats = cons(cons(health1, newHealth), message);
-    } else if (order === 2) {
-      stats = cons(cons(newHealth, health1), message);
-    }
+    const stats = {
+      health1: order === 1 ? health1 : newHealth,
+      health2: order === 1 ? newHealth : health1,
+      message,
+    };
+
     const newLog = consList(stats, log);
     return iter(newHealth, name2, health1, name1, order === 1 ? 2 : 1, newLog);
   };
-  // Стартовые условия и рекурсивный вызов
+
   const startHealth = 10;
-  const logItem = cons(cons(startHealth, startHealth), 'Начинаем бой!');
+  const logItem = {
+    health1: startHealth,
+    health2: startHealth,
+    message: 'Начинаем бой!',
+  };
   return reverse(iter(startHealth, player1, startHealth, player2, 1, l(logItem)));
 };
-// Запуск
+
 export default (cards, customRandom = random) =>
   (name1, name2) =>
     run(name1, name2, cards, customRandom);
