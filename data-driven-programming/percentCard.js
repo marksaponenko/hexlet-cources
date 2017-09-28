@@ -1,10 +1,14 @@
+// Иницилизируем карту
+const defmethod = definer('PercentCard');
+
 // Конструктор карты
-const make = (name, percent) =>
-  attach('PercentCard', cons(name, percent));
+const make = (name, points) =>
+  attach('PercentCard', cons(name, points));
 
-// Достаем имя
-const getName = self => car(contents(self));
+export default make;
 
-// Достаем урон
-const damage = (self, health) =>
-  Math.round(health * (cdr(contents(self)) / 100));
+// Добавляем данные в виртуальную таблицу, из которой будет выбираться необходимая функция
+defmethod('getName', self => car(self));
+
+defmethod('damage', (self, health) =>
+  Math.round(health * (cdr(self) / 100)));
