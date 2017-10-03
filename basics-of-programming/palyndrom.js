@@ -10,5 +10,5 @@ const isPalindrome = (str) => {
   if (str[start] !== str[end]) {
     return false;
   }
-  return isPalindrome(str.substring(start + 1, end - 1));
+  return isPalindrome(str.substring(start + 1, end));
 };
