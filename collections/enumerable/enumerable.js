@@ -1,21 +1,17 @@
-// Добавляем отложенные вычисления
+// Добавляем геттер length и мемоизацию
 
 class Enumerable {
   constructor(collection, operations) {
-    this.collection = collection.slice();
+    this.collection = collection;
     this.operations = operations || [];
   }
 
-  select(fn) {
-    const newOps = this.operations.slice();
-    newOps.push(coll => coll.map(fn));
-    return new Enumerable(this.collection, newOps);
+  build(fn) {
+    return new Enumerable(this.collection.slice(), this.operations.concat(fn));
   }
 
-  where(fn) {
-    const newOps = this.operations.slice();
-    newOps.push(coll => coll.filter(fn));
-    return new Enumerable(this.collection, newOps);
+  select(fn) {
+    return this.build(coll => coll.map(fn));
   }
 
   orderBy(fn, direction = 'asc') {
@@ -33,13 +29,23 @@ class Enumerable {
 
       return 0;
     };
-    const newOps = this.operations.slice();
-    newOps.push(coll => coll.sort(comparator));
-    return new Enumerable(this.collection, newOps);
+    return this.build(coll => coll.sort(comparator));
   }
 
+  where(fn) {
+    return this.build(coll => coll.filter(fn));
+  }
+
+
   toArray() {
-    return this.operations.reduce((acc, oper) => oper(acc), this.collection);
+    if (!this.memo) {
+      this.memo = this.operations.reduce((acc, func) => func(acc), this.collection);
+    }
+    return this.memo;
+  }
+
+  get length() {
+    return this.toArray().length;
   }
 }
 
