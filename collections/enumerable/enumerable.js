@@ -1,13 +1,21 @@
-// Меняем реализацию методов, чтобы работать в иммутабильном стиле
+// Добавляем отложенные вычисления
 
 class Enumerable {
-  constructor(collection) {
-    this.collection = collection;
+  constructor(collection, operations) {
+    this.collection = collection.slice();
+    this.operations = operations || [];
   }
 
   select(fn) {
-    const selected = this.collection.map(fn);
-    return new Enumerable(selected);
+    const newOps = this.operations.slice();
+    newOps.push(coll => coll.map(fn));
+    return new Enumerable(this.collection, newOps);
+  }
+
+  where(fn) {
+    const newOps = this.operations.slice();
+    newOps.push(coll => coll.filter(fn));
+    return new Enumerable(this.collection, newOps);
   }
 
   orderBy(fn, direction = 'asc') {
@@ -25,17 +33,13 @@ class Enumerable {
 
       return 0;
     };
-    const sorted = this.collection.slice().sort(comparator);
-    return new Enumerable(sorted);
-  }
-
-  where(fn) {
-    const filtered = this.collection.filter(fn);
-    return new Enumerable(filtered);
+    const newOps = this.operations.slice();
+    newOps.push(coll => coll.sort(comparator));
+    return new Enumerable(this.collection, newOps);
   }
 
   toArray() {
-    return this.collection;
+    return this.operations.reduce((acc, oper) => oper(acc), this.collection);
   }
 }
 
