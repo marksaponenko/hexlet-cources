@@ -1,4 +1,10 @@
-// Добавляем геттер length и мемоизацию
+/*
+Реализуйте метод where, основываясь на следующем интерфейсе:
+Функция может принимать любое количество параметров, каждый из которых
+может быть либо функцией, либо объектом. Для функций должна осуществляться
+простая фильтрация, для объектов нужно проверять соответствие элемента
+коллекции значениям по тем же ключам, что и в переданном объекте.
+*/
 
 class Enumerable {
   constructor(collection, operations) {
@@ -10,42 +16,26 @@ class Enumerable {
     return new Enumerable(this.collection.slice(), this.operations.concat(fn));
   }
 
-  select(fn) {
-    return this.build(coll => coll.map(fn));
-  }
-
-  orderBy(fn, direction = 'asc') {
-    const comparator = (a, b) => {
-      const a1 = fn(a);
-      const b1 = fn(b);
-
-      const compareResult = direction === 'asc' ? 1 : -1;
-
-      if (a1 > b1) {
-        return compareResult;
-      } else if (a1 < b1) {
-        return -compareResult;
+  where(...args) {
+    return this.build(args.map((value) => {
+      if (typeof value === 'function') {
+        return coll => coll.filter(value);
       }
 
-      return 0;
-    };
-    return this.build(coll => coll.sort(comparator));
+      return coll => coll.filter(element => Object.keys(value).every(i => element[i] === value[i]));
+    }));
   }
 
-  where(fn) {
-    return this.build(coll => coll.filter(fn));
+  get length() {
+    return this.toArray().length;
   }
-
 
   toArray() {
     if (!this.memo) {
       this.memo = this.operations.reduce((acc, func) => func(acc), this.collection);
     }
-    return this.memo;
-  }
 
-  get length() {
-    return this.toArray().length;
+    return this.memo;
   }
 }
 
