@@ -1,91 +1,47 @@
 /*
-Текущая версия htmlBuilder должна уметь работать с одиночными тегами.
-Список тегов, которые являются одиночными, находится в singleTagsList.
+Реализуйте и экспортируйте функцию по умолчанию, задача которой,
+оздавать объект подходящего типа. Типы: SingleTag и PairedTag.
+Список имен тегов, которые относятся к SingleTag: hr, br, img.
 
-Пример:
+Реализуйте типы тегов со следующим интерфейсом:
 
-// <br>
-['br'];
-
-// <img src="/path">
-['img', { src: '/path' }];
-
-solution.js
-
-Реализуйте и экспортируйте функции parse и render.
-
-    Функция render принимает на вход ast и возвращает строковое представление.
-    Функция parse принимает на вход исходную структуру и возвращает представление в виде ast.
-
-const data = ['html', [
-  ['meta', { id: 'uniq-key' }, [
-    ['title', 'hello, hexlet!'],
-  ]],
-  ['body', [
-    ['br'],
-  ]],
-]];
-
-const ast = parse(data);
-
-{ name: 'html', attributes: {}, body: '', children: [
-  { name: 'meta', attributes: { id: 'uniq-key' }, body: '', children: [
-    { name: 'title', attributes: {}, body: 'hello, hexlet!', children: [] },
-  ]},
-  { name: 'body', attributes: {}, body: '', children: [
-    { name: 'br', attributes: {}, body: '', children: [] },
-  ]},
-]}
-
+    Конструктор, который принимает на вход: name, attributes, body, children.
+    Метод toString, который возвращает текстовое представление узла (html) на всю глубину.
 */
 
-import { find, identity } from 'lodash'; // eslint-disable-line
+import _ from 'lodash'; // eslint-disable-line
 
-const singleTagsList = new Set(['hr', 'img', 'br']);
-// Поменяли реализацию диспечеризации
+import buildNode from './buildNode';
+// Диспечеризация по типу элемента тега и выбор реализации его
+// преобразования при обходе коллекции
 const propertyActions = [
   {
     name: 'body',
     check: arg => typeof arg === 'string',
+    process: _.identity,
   },
   {
     name: 'children',
     check: arg => arg instanceof Array,
+    process: (children, f) => children.map(f),
   },
   {
     name: 'attributes',
     check: arg => arg instanceof Object,
+    process: _.identity,
   },
 ];
-// Ищем тип элемента тега
-const getPropertyAction = arg => find(propertyActions, ({ check }) => check(arg));
 
-const buildAttrString = attrs =>
-  Object.keys(attrs).map(key => ` ${key}="${attrs[key]}"`).join('');
-// Превращаем DSL в AST - дерево
-export const parse = (data) => {
-  const switchArg = {
-    body: identity,
-    attributes: identity,
-    children: i => i.map(parse),
-  };
-
+const getPropertyAction = arg => _.find(propertyActions, ({ check }) => check(arg));
+// Парсим DSL, создаем объект с данным и передаем значения в buildNode
+const parse = (data) => {
   const [first, ...rest] = data;
   const root = { name: first, attributes: {}, body: '', children: [] };
+  const tag = rest.reduce((acc, arg) => {
+    const { name, process } = getPropertyAction(arg);
+    return { ...acc, [name]: process(arg, parse) };
+  }, root);
 
-  return rest
-    .reduce((acc, arg) => {
-      const { name } = getPropertyAction(arg);
-      return { ...acc, [name]: switchArg[name](arg) };
-    }, root);
+  return buildNode(tag.name, tag.attributes, tag.body, tag.children);
 };
-// Парсим AST дерево в строку
-export const render = (ast) => {
-  if (singleTagsList.has(ast.name)) {
-    return [`<${ast.name}${buildAttrString(ast.attributes)}>`].join('');
-  }
-  return [`<${ast.name}${buildAttrString(ast.attributes)}>`,
-    `${ast.body}${ast.children.map(render).join('')}`,
-    `</${ast.name}>`,
-  ].join('');
-};
+export default parse;
