@@ -1,61 +1,91 @@
 /*
-Реализуйте и экспортируйте по умолчанию функцию buildHtml,
-которая возвращает строковое представление html.
+Текущая версия htmlBuilder должна уметь работать с одиночными тегами.
+Список тегов, которые являются одиночными, находится в singleTagsList.
 
-import buildHtml from './solution';
+Пример:
+
+// <br>
+['br'];
+
+// <img src="/path">
+['img', { src: '/path' }];
+
+solution.js
+
+Реализуйте и экспортируйте функции parse и render.
+
+    Функция render принимает на вход ast и возвращает строковое представление.
+    Функция parse принимает на вход исходную структуру и возвращает представление в виде ast.
 
 const data = ['html', [
-  ['meta', [
+  ['meta', { id: 'uniq-key' }, [
     ['title', 'hello, hexlet!'],
   ]],
-  ['body', { class: 'container' }, [
-    ['h1', { class: 'header' }, 'html builder example'],
-    ['div', [
-      ['span', 'span text2'],
-      ['span', 'span text3'],
-    ]],
+  ['body', [
+    ['br'],
   ]],
 ]];
 
-buildHtml(data);
+const ast = parse(data);
 
-<html>
-  <meta><title>hello, hexlet!</title></meta>
-  <body class="container">
-    <h1 class="header">html builder example</h1>
-    <div>
-      <span>span text2</span>
-      <span>span text3</span>
-    </div>
-  </body>
-</html>
+{ name: 'html', attributes: {}, body: '', children: [
+  { name: 'meta', attributes: { id: 'uniq-key' }, body: '', children: [
+    { name: 'title', attributes: {}, body: 'hello, hexlet!', children: [] },
+  ]},
+  { name: 'body', attributes: {}, body: '', children: [
+    { name: 'br', attributes: {}, body: '', children: [] },
+  ]},
+]}
+
 */
 
-// Диспечеризация по типу элемента тега
-const attrs = {
-  body: i => typeof i === 'string',
-  children: i => i instanceof Array,
-  attributes: i => i instanceof Object,
+import { find, identity } from 'lodash'; // eslint-disable-line
+
+const singleTagsList = new Set(['hr', 'img', 'br']);
+// Поменяли реализацию диспечеризации
+const propertyActions = [
+  {
+    name: 'body',
+    check: arg => typeof arg === 'string',
+  },
+  {
+    name: 'children',
+    check: arg => arg instanceof Array,
+  },
+  {
+    name: 'attributes',
+    check: arg => arg instanceof Object,
+  },
+];
+// Ищем тип элемента тега
+const getPropertyAction = arg => find(propertyActions, ({ check }) => check(arg));
+
+const buildAttrString = attrs =>
+  Object.keys(attrs).map(key => ` ${key}="${attrs[key]}"`).join('');
+// Превращаем DSL в AST - дерево
+export const parse = (data) => {
+  const switchArg = {
+    body: identity,
+    attributes: identity,
+    children: i => i.map(parse),
+  };
+
+  const [first, ...rest] = data;
+  const root = { name: first, attributes: {}, body: '', children: [] };
+
+  return rest
+    .reduce((acc, arg) => {
+      const { name } = getPropertyAction(arg);
+      return { ...acc, [name]: switchArg[name](arg) };
+    }, root);
 };
-// Получаем тип элемента
-const getAttrName = elem => Object.keys(attrs).filter(i => attrs[i](elem))[0];
-// Парсим attributes
-const selectorsToStr = select => Object.keys(select).reduce((acc, elem) => `${acc} ${elem}="${select[elem]}"`, '');
-
-
-const buildHtml = (html) => {
-  const [first, ...rest] = html;
-  const tag = rest.reduce((acc, value) => {
-    // Выбираем, как обрабатывать элемент
-    const attrMap = {
-      body: i => i,
-      attributes: i => selectorsToStr(i),
-      children: i => i.map(buildHtml),
-    };
-
-    const attrName = getAttrName(value);
-    return { ...acc, [attrName]: attrMap[attrName](value) };
-  }, { name: first, attributes: '', body: '', children: [] });
-  return `<${tag.name}${tag.attributes}>${tag.body}${tag.children.join('')}</${tag.name}>`;
+// Парсим AST дерево в строку
+export const render = (ast) => {
+  if (singleTagsList.has(ast.name)) {
+    return [`<${ast.name}${buildAttrString(ast.attributes)}>`].join('');
+  }
+  return [`<${ast.name}${buildAttrString(ast.attributes)}>`,
+    `${ast.body}${ast.children.map(render).join('')}`,
+    `</${ast.name}>`,
+  ].join('');
 };
-export default buildHtml;
