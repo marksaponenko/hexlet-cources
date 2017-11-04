@@ -1,71 +1,53 @@
-// Целью курса является создание библиотеки для работы с файловой системой.
-// В первом уроке мы создаем интерфейс для работы с деревьями
+import path from 'path';
+import Tree from 'hexlet-trees';
 
-class Tree {
-  constructor(key, meta, parent) {
-    this.parent = parent;
-    this.key = key;
-    this.meta = meta;
-    this.children = new Map();
+const getPathParts = filepath => path.normalize(filepath)
+  .split(path.sep)
+  .filter(value => value !== '');
+// END
+
+export default class {
+  constructor() {
+    this.tree = new Tree('/', { type: 'dir' });
   }
 
-  getKey() {
-    return this.key;
+  findNode(filepath) {
+    const parts = getPathParts(filepath);
+    return parts.length === 0 ? this.tree : this.tree.getDeepChild(parts);
   }
 
-  getMeta() {
-    return this.meta;
+
+  mkdirSync(filepath) {
+    const parentPath = path.parse(filepath).dir;
+
+    const parent = this.findNode(parentPath);
+
+    const key = path.parse(filepath).base;
+    return parent.addChild(key, { type: 'dir' });
   }
 
-  addChild(key, meta) {
-    const child = new Tree(key, meta, this);
-    this.children.set(key, child);
-
-    return child;
+  touchSync(filepath) {
+    const parentPath = path.parse(filepath).dir;
+    const parent = this.findNode(parentPath);
+    const key = path.parse(filepath).base;
+    return parent.addChild(key, { type: 'file' });
   }
 
-  getChild(key) {
-    return this.children.get(key);
-  }
-
-  hasChildren() {
-    return this.children.size !== 0;
-  }
-
-  hasChild(key) {
-    return [...this.children.keys()].includes(key);
-  }
-
-  getParent() {
-    return this.parent;
-  }
-
-  removeChild(key) {
-    return this.children.delete(key);
-  }
-
-  getDeepChild(keys) {
-    if (keys.length === 0) {
-      return undefined;
+  isDirectory(filepath) {
+    if (this.findNode(filepath) === undefined) {
+      return false;
     }
-
-    const iter = (current, counter) => {
-      const key = keys[counter];
-      if (counter === keys.length) {
-        return current;
-      }
-      if (!current.hasChild(key)) {
-        return undefined;
-      }
-
-      return iter(current.getChild(key), counter + 1);
-    };
-    return iter(this, 0);
+    const node = this.findNode(filepath);
+    const nodeMeta = node.getMeta();
+    return nodeMeta.type === 'dir';
   }
 
-  getChildren() {
-    return [...this.children.values()];
+  isFile(filepath) {
+    if (this.findNode(filepath) === undefined) {
+      return false;
+    }
+    const node = this.findNode(filepath);
+    const nodeMeta = node.getMeta();
+    return nodeMeta.type === 'file';
   }
 }
-
-export default Tree;
