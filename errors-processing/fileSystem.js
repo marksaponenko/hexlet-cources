@@ -1,41 +1,34 @@
 /* Реализуйте следующие возможности файловой системы HexletFs:
-mkdirpSync(path)
+unlinkSync(path)
 
-Создает директории рекурсивно (в отличие от mkdir).
+Удаляет файл (в реальной фс все чуть сложнее, см. hard link).
 
-    Если в пути встречается файл, то возвращает false, т.к. нельзя создать директорию внутри файла.
-    Если все отработало корректно, то возвращается true
+Возможные ошибки:
 
-touchSync(path)
+    ENOENT - файл не найден
+    EPERM - операция не разрешена. Такая ошибка возникает в случае, если path это директория
 
-Эта функция обновляет (в метаданных) время доступа к файлу и, как побочный эффект,
-создает файл, в случае его отсутствия. По этой причине команду touch часто
-используют как способ создать файл. В данном упражнении она делает только это.
+writeFileSync(path, content)
 
-    Если в пути встречается файл, то возвращает false, т.к. нельзя создать файл внутри файла
-    Если все отработало корректно, то возвращается true
+Записывает content в файл по пути path.
 
-readdirSync(path)
+Возможные ошибки:
 
-Возвращает список файлов (и папок) указанной директории.
+    ENOENT - родительская директория, в которой нужно создать файл, не существует
+    EISDIR - path является директорией
 
-    Если директории не существует, то возвращает false
-    Если передан файл, то возвращает false
+readFileSync(path)
 
-rmdirSync(path)
+Читает содержимое файла по пути path.
 
-Удаляет директорию.
-
-    Если передан файл, то возвращает false и ничего не удаляет
-    Если директории не существует, то возвращает false
-    Если директория непустая, то возвращает false
-    Если все отработало корректно, то возвращается true
+    ENOENT - файл не найден
+    EISDIR - path является директорией
 */
 
 import path from 'path';
+import errors from 'errno'; // eslint-disable-line
 import Tree from 'hexlet-trees'; // eslint-disable-line
 import { Dir, File } from 'hexlet-fs'; // eslint-disable-line
-
 
 const getPathParts = filepath =>
   filepath.split(path.sep).filter(part => part !== '');
@@ -48,64 +41,94 @@ export default class {
   statSync(filepath) {
     const current = this.findNode(filepath);
     if (!current) {
-      return null;
+      return [null, errors.code.ENOENT];
     }
-    return current.getMeta().getStats();
+    return [current.getMeta().getStats(), null];
   }
 
-  mkdirSync(filepath) {
+  unlinkSync(filepath) {
     const { base, dir } = path.parse(filepath);
     const parent = this.findNode(dir);
 
-    if (!parent || parent.getMeta().getStats().isFile()) {
-      return false;
+    const current = this.findNode(filepath);
+
+    if (!current) {
+      return [null, errors.code.ENOENT];
     }
-    return parent.addChild(base, new Dir(base));
+    if (current.getMeta().getStats().isDirectory()) {
+      return [null, errors.code.EPERM];
+    }
+
+    return [parent.removeChild(base), null];
+  }
+
+  writeFileSync(filepath, content) {
+    const { base, dir } = path.parse(filepath);
+    const parent = this.findNode(dir);
+    const current = this.findNode(filepath);
+
+    if (!parent) {
+      return [null, errors.code.ENOENT];
+    }
+    if (current && current.getMeta().getStats().isDirectory()) {
+      return [null, errors.code.EISDIR];
+    }
+    return [parent.addChild(base, new File(base, content)), null];
+  }
+
+  readFileSync(filepath) {
+    const current = this.findNode(filepath);
+
+    if (!current) {
+      return [null, errors.code.ENOENT];
+    }
+    if (current.getMeta().getStats().isDirectory()) {
+      return [null, errors.code.EISDIR];
+    }
+
+    return [current.getMeta().getBody(), null];
   }
 
   mkdirpSync(filepath) {
-    const pathAsArr = getPathParts(filepath);
-    return pathAsArr.reduce((acc, value) => {
-      if (!acc) {
-        return false;
+    const iter = (parts, subtree) => {
+      if (parts.length === 0) {
+        return [subtree, null];
       }
-      const child = acc.getChild(value);
-      if (child && child.getMeta().isFile()) {
-        return false;
-      } else if (child && child.getMeta().isDirectory()) {
-        return child;
+      const [part, ...rest] = parts;
+      const current = subtree.getChild(part);
+      if (!current) {
+        return iter(rest, subtree.addChild(part, new Dir(part)));
+      }
+      if (current.getMeta().isFile()) {
+        return [null, errors.code.ENOTDIR];
       }
 
-      return acc.addChild(value, new Dir(value));
-    }, this.tree);
+      return iter(rest, current);
+    };
+    const parts = getPathParts(filepath);
+    return iter(parts, this.tree);
   }
 
   touchSync(filepath) {
     const { base, dir } = path.parse(filepath);
     const parent = this.findNode(dir);
-    if (!parent || parent.getMeta().getStats().isFile()) {
-      return false;
+    if (!parent) {
+      return [null, errors.code.ENOENT];
     }
-    return parent.addChild(base, new File(base));
+    if (parent.getMeta().isFile()) {
+      return [null, errors.code.ENOTDIR];
+    }
+    return [parent.addChild(base, new File(base, '')), null];
   }
 
   readdirSync(filepath) {
-    const node = this.findNode(filepath);
-    if (!node || node.getMeta().getStats().isFile()) {
-      return false;
+    const dir = this.findNode(filepath);
+    if (!dir) {
+      return [null, errors.code.ENOENT];
+    } else if (dir.getMeta().isFile()) {
+      return [null, errors.code.ENOTDIR];
     }
-    return node.getChildren().map(child => child.getKey());
-  }
-
-  rmdirSync(filepath) {
-    const node = this.findNode(filepath);
-    const { base, dir } = path.parse(filepath);
-    const parent = this.findNode(dir);
-    if (!node || node.getMeta().getStats().isFile() || node.hasChildren()) {
-      return false;
-    }
-    parent.removeChild(base);
-    return true;
+    return [dir.getChildren().map(child => child.getKey()), null];
   }
 
   findNode(filepath) {
